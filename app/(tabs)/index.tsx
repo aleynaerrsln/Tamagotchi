@@ -8,263 +8,91 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useGame, xpForLevel } from '../../context/GameContext';
+import CatCharacter from '../../components/CatCharacter';
 
-// ─── Uçan Yemek Animasyonu ───────────────────────────
-function FlyingFood({ trigger }: { trigger: number }) {
-  const posY = useRef(new Animated.Value(80)).current;
-  const posX = useRef(new Animated.Value(-40)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (trigger === 0) return;
-    posY.setValue(80);
-    posX.setValue(-40);
-    opacity.setValue(1);
-    scale.setValue(1);
-
-    Animated.parallel([
-      Animated.timing(posY, { toValue: -20, duration: 600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      Animated.timing(posX, { toValue: 0, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.sequence([
-        Animated.delay(400),
-        Animated.timing(scale, { toValue: 0.2, duration: 200, useNativeDriver: true }),
-      ]),
-      Animated.sequence([
-        Animated.delay(500),
-        Animated.timing(opacity, { toValue: 0, duration: 100, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }, [trigger]);
-
-  return (
-    <Animated.Text style={[styles.flyingFood, {
-      opacity,
-      transform: [{ translateY: posY }, { translateX: posX }, { scale }],
-    }]}>
-      🍕
-    </Animated.Text>
-  );
-}
-
-// ─── Zıplayan Top Animasyonu ──────────────────────────
-function BouncingBall({ trigger }: { trigger: number }) {
-  const posY = useRef(new Animated.Value(0)).current;
-  const posX = useRef(new Animated.Value(40)).current;
+// ─── Başarım Popup ────────────────────────────────────
+function AchievementPopup() {
+  const { newAchievement, clearNewAchievement } = useGame();
+  const slide = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (trigger === 0) return;
-    posY.setValue(60);
-    posX.setValue(40);
-    opacity.setValue(1);
-
+    if (!newAchievement) return;
     Animated.parallel([
-      Animated.sequence([
-        Animated.timing(posY, { toValue: -10, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(posY, { toValue: 30, duration: 200, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-        Animated.timing(posY, { toValue: -5, duration: 150, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(posY, { toValue: 20, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-      ]),
-      Animated.timing(posX, { toValue: 70, duration: 700, useNativeDriver: true }),
-      Animated.sequence([
-        Animated.delay(550),
-        Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-      ]),
+      Animated.spring(slide, { toValue: 0, friction: 6, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
-  }, [trigger]);
+    const t = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(slide, { toValue: -100, duration: 300, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start(() => clearNewAchievement());
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [newAchievement]);
 
+  if (!newAchievement) return null;
   return (
-    <Animated.Text style={[styles.bouncingBall, {
-      opacity,
-      transform: [{ translateY: posY }, { translateX: posX }],
-    }]}>
-      🎾
-    </Animated.Text>
+    <Animated.View style={[styles.popup, { transform: [{ translateY: slide }], opacity }]}>
+      <LinearGradient colors={['#fdcb6e', '#f39c12']} style={styles.popupInner} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+        <Text style={styles.popupIcon}>{newAchievement.icon}</Text>
+        <View>
+          <Text style={styles.popupLabel}>Başarım Açıldı!</Text>
+          <Text style={styles.popupTitle}>{newAchievement.title}</Text>
+        </View>
+      </LinearGradient>
+    </Animated.View>
   );
 }
 
-// ─── Yıldız Parıltıları ──────────────────────────────
-function Sparkles({ mutluluk }: { mutluluk: number }) {
-  const sparkle1 = useRef(new Animated.Value(0)).current;
-  const sparkle2 = useRef(new Animated.Value(0)).current;
-  const sparkle3 = useRef(new Animated.Value(0)).current;
+// ─── XP & Coin Bar ────────────────────────────────────
+function TopBar() {
+  const { xp, level, levelTitle, coins } = useGame();
+  const nextXP = xpForLevel(level + 1);
+  const currentXP = xpForLevel(level);
+  const progress = Math.min(((xp - currentXP) / (nextXP - currentXP)) * 100, 100);
+  const animW = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (mutluluk < 70) return;
-    const animate = (val: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(val, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(val, { toValue: 0, duration: 400, useNativeDriver: true }),
-          Animated.delay(800),
-        ])
-      );
-    const a1 = animate(sparkle1, 0);
-    const a2 = animate(sparkle2, 300);
-    const a3 = animate(sparkle3, 600);
-    a1.start(); a2.start(); a3.start();
-    return () => { a1.stop(); a2.stop(); a3.stop(); };
-  }, [mutluluk >= 70]);
+    Animated.spring(animW, { toValue: progress, friction: 8, useNativeDriver: false }).start();
+  }, [progress]);
 
-  if (mutluluk < 70) return null;
-  return (
-    <>
-      <Animated.Text style={[styles.sparkle, { top: 5, left: 10, opacity: sparkle1, transform: [{ scale: sparkle1 }] }]}>✨</Animated.Text>
-      <Animated.Text style={[styles.sparkle, { top: 30, right: 5, opacity: sparkle2, transform: [{ scale: sparkle2 }] }]}>⭐</Animated.Text>
-      <Animated.Text style={[styles.sparkle, { top: 60, left: 0, opacity: sparkle3, transform: [{ scale: sparkle3 }] }]}>✨</Animated.Text>
-    </>
-  );
-}
-
-// ─── ZZZ Uyku Animasyonu ──────────────────────────────
-function SleepBubbles({ sleeping }: { sleeping: boolean }) {
-  const z1 = useRef(new Animated.Value(0)).current;
-  const z2 = useRef(new Animated.Value(0)).current;
-  const z3 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!sleeping) return;
-    const animateZ = (val: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.parallel([
-            Animated.timing(val, { toValue: 1, duration: 1200, useNativeDriver: true }),
-          ]),
-          Animated.timing(val, { toValue: 0, duration: 0, useNativeDriver: true }),
-        ])
-      );
-    const a1 = animateZ(z1, 0);
-    const a2 = animateZ(z2, 400);
-    const a3 = animateZ(z3, 800);
-    a1.start(); a2.start(); a3.start();
-    return () => { a1.stop(); a2.stop(); a3.stop(); };
-  }, [sleeping]);
-
-  if (!sleeping) return null;
-  return (
-    <>
-      {[z1, z2, z3].map((z, i) => (
-        <Animated.Text key={i} style={[styles.zzz, {
-          right: 10 + i * 12,
-          opacity: z,
-          fontSize: 14 + i * 6,
-          transform: [{ translateY: z.interpolate({ inputRange: [0, 1], outputRange: [0, -40 - i * 15] }) }],
-        }]}>
-          Z
-        </Animated.Text>
-      ))}
-    </>
-  );
-}
-
-// ─── Animasyonlu Karakter ─────────────────────────────
-function PetCharacter({ aclik, mutluluk, feedTrigger, playTrigger, sleeping }: {
-  aclik: number; mutluluk: number; feedTrigger: number; playTrigger: number; sleeping: boolean;
-}) {
-  const float = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
-  const rotate = useRef(new Animated.Value(0)).current;
-  const heartScale = useRef(new Animated.Value(0)).current;
-
-  // Süzülme
-  useEffect(() => {
-    const speed = sleeping ? 2500 : 1500;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(float, { toValue: sleeping ? -4 : -8, duration: speed, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(float, { toValue: sleeping ? 4 : 8, duration: speed, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [sleeping]);
-
-  // Beslenince bounce
-  useEffect(() => {
-    if (feedTrigger === 0) return;
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 1.3, duration: 150, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 3, useNativeDriver: true }),
-    ]).start();
-  }, [feedTrigger]);
-
-  // Oynarken sallanma + kalp
-  useEffect(() => {
-    if (playTrigger === 0) return;
-    Animated.parallel([
-      Animated.sequence([
-        Animated.timing(rotate, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(rotate, { toValue: -1, duration: 80, useNativeDriver: true }),
-        Animated.timing(rotate, { toValue: 1, duration: 80, useNativeDriver: true }),
-        Animated.timing(rotate, { toValue: -1, duration: 80, useNativeDriver: true }),
-        Animated.timing(rotate, { toValue: 0, duration: 80, useNativeDriver: true }),
-      ]),
-      Animated.sequence([
-        Animated.timing(heartScale, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.delay(600),
-        Animated.timing(heartScale, { toValue: 0, duration: 300, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }, [playTrigger]);
-
-  const spin = rotate.interpolate({ inputRange: [-1, 1], outputRange: ['-15deg', '15deg'] });
-
-  const getCharacter = () => {
-    if (sleeping) return { face: '😽', label: 'Uyuyor... 💤' };
-    if (aclik > 80) return { face: '😿', label: 'Çok açım...' };
-    if (mutluluk >= 90) return { face: '😻', label: 'Harikayım!' };
-    if (mutluluk > 65) return { face: '😸', label: 'Mutluyum!' };
-    if (mutluluk > 40) return { face: '🐱', label: 'İyiyim' };
-    if (mutluluk > 20) return { face: '😾', label: 'Canım sıkkın...' };
-    return { face: '🙀', label: 'Çok mutsuzum!' };
-  };
-
-  const { face, label } = getCharacter();
+  const w = animW.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
 
   return (
-    <View style={styles.characterArea}>
-      <Sparkles mutluluk={mutluluk} />
-      <SleepBubbles sleeping={sleeping} />
-
-      <Animated.View style={{
-        transform: [{ translateY: float }, { scale }, { rotate: spin }],
-        alignItems: 'center',
-      }}>
-        <Text style={styles.characterEmoji}>{face}</Text>
-      </Animated.View>
-
-      {/* Kalp */}
-      <Animated.Text style={[styles.heartFloat, {
-        opacity: heartScale,
-        transform: [{ scale: heartScale }, { translateY: heartScale.interpolate({ inputRange: [0, 1], outputRange: [0, -30] }) }],
-      }]}>
-        💕
-      </Animated.Text>
-
-      {/* Yemek uçuşu */}
-      <FlyingFood trigger={feedTrigger} />
-      {/* Top zıplaması */}
-      <BouncingBall trigger={playTrigger} />
-
-      <Text style={styles.moodLabel}>{label}</Text>
+    <View style={styles.topBar}>
+      <View style={styles.topBarLeft}>
+        <View style={styles.levelCircle}>
+          <Text style={styles.levelNum}>{level}</Text>
+        </View>
+        <View style={styles.xpInfo}>
+          <Text style={styles.levelTitle}>{levelTitle}</Text>
+          <View style={styles.xpTrack}>
+            <Animated.View style={[styles.xpFill, { width: w }]}>
+              <LinearGradient colors={['#f9ca24', '#f0932b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, borderRadius: 3 }} />
+            </Animated.View>
+          </View>
+          <Text style={styles.xpText}>{xp} / {nextXP} XP</Text>
+        </View>
+      </View>
+      <View style={styles.coinBadge}>
+        <Text style={styles.coinIcon}>🪙</Text>
+        <Text style={styles.coinNum}>{coins}</Text>
+      </View>
     </View>
   );
 }
 
-// ─── Progress Bar ─────────────────────────────────────
+// ─── Stat Bar ─────────────────────────────────────────
 function StatBar({ icon, label, value, colors }: {
   icon: string; label: string; value: number; colors: [string, string];
 }) {
-  const animWidth = useRef(new Animated.Value(value)).current;
-
+  const animW = useRef(new Animated.Value(value)).current;
   useEffect(() => {
-    Animated.spring(animWidth, { toValue: value, friction: 8, useNativeDriver: false }).start();
+    Animated.spring(animW, { toValue: value, friction: 8, useNativeDriver: false }).start();
   }, [value]);
-
-  const widthPercent = animWidth.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+  const w = animW.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
 
   return (
     <View style={styles.statRow}>
@@ -274,8 +102,8 @@ function StatBar({ icon, label, value, colors }: {
         <Text style={styles.statValue}>{value}%</Text>
       </View>
       <View style={styles.barTrack}>
-        <Animated.View style={[styles.barThumb, { width: widthPercent }]}>
-          <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.barGradient} />
+        <Animated.View style={[styles.barThumb, { width: w }]}>
+          <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.barGrad} />
         </Animated.View>
       </View>
     </View>
@@ -290,8 +118,9 @@ function Tamagotchi({ isim, tur }: { isim: string; tur: string }) {
   const [sleeping, setSleeping] = useState(false);
   const [feedTrigger, setFeedTrigger] = useState(0);
   const [playTrigger, setPlayTrigger] = useState(0);
+  const game = useGame();
 
-  // Zamanla açlık artar, enerji düşer (gerçek Tamagotchi)
+  // Zamanla değişim
   useEffect(() => {
     const timer = setInterval(() => {
       if (!sleeping) {
@@ -299,7 +128,6 @@ function Tamagotchi({ isim, tur }: { isim: string; tur: string }) {
         setMutluluk(prev => Math.max(prev - 1, 0));
         setEnerji(prev => Math.max(prev - 1, 0));
       } else {
-        // Uyurken enerji yüklenir
         setEnerji(prev => Math.min(prev + 3, 100));
         setMutluluk(prev => Math.min(prev + 1, 100));
       }
@@ -307,34 +135,38 @@ function Tamagotchi({ isim, tur }: { isim: string; tur: string }) {
     return () => clearInterval(timer);
   }, [sleeping]);
 
-  // Enerji bitince uyutma uyarısı otomatik
   useEffect(() => {
-    if (enerji <= 0 && !sleeping) {
-      setSleeping(true);
-    }
+    if (enerji <= 0 && !sleeping) setSleeping(true);
   }, [enerji]);
+
+  useEffect(() => {
+    game.checkAchievements(aclik, mutluluk);
+  }, [aclik, mutluluk]);
 
   const besle = useCallback(() => {
     if (sleeping) return;
     setAclik(prev => Math.max(prev - 20, 0));
     setMutluluk(prev => Math.min(prev + 5, 100));
     setFeedTrigger(t => t + 1);
-  }, [sleeping]);
+    game.recordFeed();
+  }, [sleeping, game]);
 
   const oyna = useCallback(() => {
-    if (sleeping) return;
-    if (enerji < 10) return;
+    if (sleeping || enerji < 10) return;
     setMutluluk(prev => Math.min(prev + 20, 100));
     setAclik(prev => Math.min(prev + 5, 100));
     setEnerji(prev => Math.max(prev - 10, 0));
     setPlayTrigger(t => t + 1);
-  }, [sleeping, enerji]);
+    game.recordPlay();
+  }, [sleeping, enerji, game]);
 
   const uyut = useCallback(() => {
-    setSleeping(prev => !prev);
-  }, []);
+    const willSleep = !sleeping;
+    setSleeping(willSleep);
+    if (willSleep) game.recordSleep();
+  }, [sleeping, game]);
 
-  const getBgColors = (): [string, string, string] => {
+  const getBg = (): [string, string, string] => {
     if (sleeping) return ['#2c3e50', '#34495e', '#2c3e50'];
     if (mutluluk > 70 && aclik < 40) return ['#a8e6cf', '#dcedc1', '#ffd3b6'];
     if (aclik > 70) return ['#ff9a9e', '#fecfef', '#fdfcfb'];
@@ -342,90 +174,75 @@ function Tamagotchi({ isim, tur }: { isim: string; tur: string }) {
     return ['#ffecd2', '#fcb69f', '#ff9a9e'];
   };
 
-  const aclikColors: [string, string] = aclik > 60 ? ['#ff6b6b', '#ee5a24'] : aclik > 30 ? ['#f9ca24', '#f0932b'] : ['#6ab04c', '#badc58'];
-  const mutlulukColors: [string, string] = mutluluk > 60 ? ['#6ab04c', '#badc58'] : mutluluk > 30 ? ['#f9ca24', '#f0932b'] : ['#ff6b6b', '#ee5a24'];
-  const enerjiColors: [string, string] = enerji > 50 ? ['#74b9ff', '#0984e3'] : enerji > 20 ? ['#fdcb6e', '#e17055'] : ['#ff6b6b', '#d63031'];
+  const aclikC: [string, string] = aclik > 60 ? ['#ff6b6b', '#ee5a24'] : aclik > 30 ? ['#f9ca24', '#f0932b'] : ['#6ab04c', '#badc58'];
+  const mutlulukC: [string, string] = mutluluk > 60 ? ['#6ab04c', '#badc58'] : mutluluk > 30 ? ['#f9ca24', '#f0932b'] : ['#ff6b6b', '#ee5a24'];
+  const enerjiC: [string, string] = enerji > 50 ? ['#74b9ff', '#0984e3'] : enerji > 20 ? ['#fdcb6e', '#e17055'] : ['#ff6b6b', '#d63031'];
 
   return (
-    <LinearGradient colors={getBgColors()} style={styles.gradient}>
+    <LinearGradient colors={getBg()} style={styles.gradient}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, sleeping && { color: '#ecf0f1' }]}>🐾 Tamagotchi</Text>
-        </View>
+        <AchievementPopup />
 
-        {/* Pet Card */}
+        <Text style={[styles.title, sleeping && { color: '#ecf0f1' }]}>🐾 Tamagotchi</Text>
+        <TopBar />
+
+        {/* Kedi Karakteri */}
         <View style={[styles.petCard, sleeping && styles.petCardSleep]}>
-          <View style={styles.nameSection}>
+          <View style={styles.nameRow}>
             <Text style={[styles.petName, sleeping && { color: '#ecf0f1' }]}>{isim}</Text>
             <View style={[styles.typeBadge, sleeping && { backgroundColor: 'rgba(236,240,241,0.2)' }]}>
               <Text style={[styles.typeText, sleeping && { color: '#dfe6e9' }]}>{tur}</Text>
             </View>
           </View>
-
-          <PetCharacter
-            aclik={aclik}
-            mutluluk={mutluluk}
-            feedTrigger={feedTrigger}
-            playTrigger={playTrigger}
-            sleeping={sleeping}
-          />
+          <View style={styles.catArea}>
+            <CatCharacter
+              aclik={aclik}
+              mutluluk={mutluluk}
+              sleeping={sleeping}
+              feedTrigger={feedTrigger}
+              playTrigger={playTrigger}
+              equippedItems={game.equippedItems}
+            />
+          </View>
         </View>
 
         {/* Stats */}
         <View style={[styles.statsCard, sleeping && styles.statsCardSleep]}>
-          <StatBar icon="🍖" label="Açlık" value={aclik} colors={aclikColors} />
-          <StatBar icon="💖" label="Mutluluk" value={mutluluk} colors={mutlulukColors} />
-          <StatBar icon="⚡" label="Enerji" value={enerji} colors={enerjiColors} />
+          <StatBar icon="🍖" label="Açlık" value={aclik} colors={aclikC} />
+          <StatBar icon="💖" label="Mutluluk" value={mutluluk} colors={mutlulukC} />
+          <StatBar icon="⚡" label="Enerji" value={enerji} colors={enerjiC} />
         </View>
 
         {/* Butonlar */}
-        <View style={styles.buttonRow}>
+        <View style={styles.btnRow}>
           <TouchableOpacity onPress={besle} activeOpacity={0.8} disabled={sleeping}>
-            <LinearGradient
-              colors={sleeping ? ['#636e72', '#b2bec3'] : ['#ff9966', '#ff5e62']}
-              style={styles.actionButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            >
+            <LinearGradient colors={sleeping ? ['#636e72', '#b2bec3'] : ['#ff9966', '#ff5e62']} style={styles.btn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={styles.btnIcon}>🍕</Text>
               <Text style={styles.btnText}>Besle</Text>
             </LinearGradient>
           </TouchableOpacity>
-
           <TouchableOpacity onPress={oyna} activeOpacity={0.8} disabled={sleeping || enerji < 10}>
-            <LinearGradient
-              colors={sleeping || enerji < 10 ? ['#636e72', '#b2bec3'] : ['#4facfe', '#00f2fe']}
-              style={styles.actionButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            >
+            <LinearGradient colors={sleeping || enerji < 10 ? ['#636e72', '#b2bec3'] : ['#4facfe', '#00f2fe']} style={styles.btn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={styles.btnIcon}>🎾</Text>
               <Text style={styles.btnText}>Oyna</Text>
             </LinearGradient>
           </TouchableOpacity>
-
           <TouchableOpacity onPress={uyut} activeOpacity={0.8}>
-            <LinearGradient
-              colors={sleeping ? ['#fdcb6e', '#e17055'] : ['#a29bfe', '#6c5ce7']}
-              style={styles.actionButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            >
+            <LinearGradient colors={sleeping ? ['#fdcb6e', '#e17055'] : ['#a29bfe', '#6c5ce7']} style={styles.btn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={styles.btnIcon}>{sleeping ? '☀️' : '🌙'}</Text>
               <Text style={styles.btnText}>{sleeping ? 'Uyandır' : 'Uyut'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {/* Durum mesajları */}
-        {aclik === 0 && mutluluk === 100 && (
-          <View style={styles.alertBox}>
-            <Text style={styles.alertPerfect}>🌟 {isim} en mutlu halinde!</Text>
-          </View>
-        )}
         {aclik > 80 && !sleeping && (
-          <View style={[styles.alertBox, styles.alertDanger]}>
-            <Text style={styles.alertWarning}>⚠️ {isim} çok aç! Hemen besle!</Text>
+          <View style={[styles.alert, { backgroundColor: 'rgba(255,107,107,0.2)' }]}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#d63031' }}>⚠️ {isim} çok aç!</Text>
           </View>
         )}
         {enerji < 15 && !sleeping && (
-          <View style={[styles.alertBox, styles.alertEnergy]}>
-            <Text style={styles.alertEnergyText}>😴 {isim} çok yorgun! Uyutmalısın.</Text>
+          <View style={[styles.alert, { backgroundColor: 'rgba(116,185,255,0.2)' }]}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0984e3' }}>😴 {isim} çok yorgun!</Text>
           </View>
         )}
       </View>
@@ -437,168 +254,59 @@ export default function HomeScreen() {
   return <Tamagotchi isim="Pamuk" tur="Kedi" />;
 }
 
-// ─── Stiller ──────────────────────────────────────────
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 55,
-    alignItems: 'center',
-  },
-  header: { marginBottom: 12 },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.15)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
+  container: { flex: 1, paddingHorizontal: 18, paddingTop: 48, alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '900', color: '#fff', textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4, marginBottom: 6 },
 
-  // Pet Card
-  petCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 28,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
-    marginBottom: 14,
-  },
-  petCardSleep: {
-    backgroundColor: 'rgba(44,62,80,0.7)',
-  },
-  nameSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
-  },
-  petName: { fontSize: 24, fontWeight: '800', color: '#2d3436' },
-  typeBadge: {
-    backgroundColor: 'rgba(108,92,231,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  typeText: { fontSize: 13, fontWeight: '700', color: '#6c5ce7' },
+  // Top bar
+  topBar: { width: '100%', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.75)', borderRadius: 14, padding: 10, marginBottom: 8, gap: 10 },
+  topBarLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  levelCircle: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#f0932b', justifyContent: 'center', alignItems: 'center' },
+  levelNum: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  xpInfo: { flex: 1 },
+  levelTitle: { fontSize: 12, fontWeight: '800', color: '#2d3436' },
+  xpTrack: { height: 6, backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', marginVertical: 2 },
+  xpFill: { height: '100%', borderRadius: 3, overflow: 'hidden' },
+  xpText: { fontSize: 10, color: '#636e72', fontWeight: '600' },
+  coinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(241,196,15,0.2)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, gap: 4 },
+  coinIcon: { fontSize: 16 },
+  coinNum: { fontSize: 15, fontWeight: '900', color: '#f39c12' },
 
-  // Karakter
-  characterArea: {
-    alignItems: 'center',
-    height: 150,
-    justifyContent: 'center',
-    width: '100%',
-  },
-  characterEmoji: { fontSize: 90 },
-  heartFloat: {
-    position: 'absolute',
-    top: 5,
-    right: 30,
-    fontSize: 28,
-  },
-  moodLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#636e72',
-    marginTop: 2,
-  },
-
-  // Animasyonlar
-  flyingFood: {
-    position: 'absolute',
-    fontSize: 32,
-    zIndex: 10,
-  },
-  bouncingBall: {
-    position: 'absolute',
-    fontSize: 24,
-    zIndex: 10,
-  },
-  sparkle: {
-    position: 'absolute',
-    fontSize: 18,
-    zIndex: 5,
-  },
-  zzz: {
-    position: 'absolute',
-    top: 10,
-    fontWeight: '900',
-    color: '#dfe6e9',
-    zIndex: 5,
-  },
+  // Pet card
+  petCard: { width: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 22, paddingTop: 12, paddingBottom: 6, paddingHorizontal: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, marginBottom: 8 },
+  petCardSleep: { backgroundColor: 'rgba(44,62,80,0.7)' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  petName: { fontSize: 20, fontWeight: '800', color: '#2d3436' },
+  typeBadge: { backgroundColor: 'rgba(108,92,231,0.15)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+  typeText: { fontSize: 11, fontWeight: '700', color: '#6c5ce7' },
+  catArea: { height: 230, justifyContent: 'center', alignItems: 'center' },
 
   // Stats
-  statsCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-    marginBottom: 16,
-    gap: 12,
-  },
-  statsCardSleep: {
-    backgroundColor: 'rgba(44,62,80,0.7)',
-  },
-  statRow: { gap: 5 },
-  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statIcon: { fontSize: 15 },
-  statLabel: { fontSize: 13, fontWeight: '700', color: '#2d3436', flex: 1 },
-  statValue: { fontSize: 13, fontWeight: '800', color: '#636e72' },
-  barTrack: {
-    height: 10,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  barThumb: { height: '100%', borderRadius: 5, overflow: 'hidden' },
-  barGradient: { flex: 1, borderRadius: 5 },
+  statsCard: { width: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 16, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3, marginBottom: 10, gap: 8 },
+  statsCardSleep: { backgroundColor: 'rgba(44,62,80,0.7)' },
+  statRow: { gap: 3 },
+  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statIcon: { fontSize: 13 },
+  statLabel: { fontSize: 11, fontWeight: '700', color: '#2d3436', flex: 1 },
+  statValue: { fontSize: 11, fontWeight: '800', color: '#636e72' },
+  barTrack: { height: 7, backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 4, overflow: 'hidden' },
+  barThumb: { height: '100%', borderRadius: 4, overflow: 'hidden' },
+  barGrad: { flex: 1, borderRadius: 4 },
 
-  // Butonlar
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 6,
-    gap: 6,
-  },
-  btnIcon: { fontSize: 20 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  // Buttons
+  btnRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
+  btn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 16, borderRadius: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 4, gap: 5 },
+  btnIcon: { fontSize: 16 },
+  btnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
-  // Uyarılar
-  alertBox: {
-    marginTop: 12,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  alertDanger: { backgroundColor: 'rgba(255,107,107,0.2)' },
-  alertEnergy: { backgroundColor: 'rgba(116,185,255,0.2)' },
-  alertPerfect: { fontSize: 15, fontWeight: '700', color: '#00b894' },
-  alertWarning: { fontSize: 14, fontWeight: '700', color: '#d63031' },
-  alertEnergyText: { fontSize: 14, fontWeight: '700', color: '#0984e3' },
+  // Alert
+  alert: { marginTop: 8, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10 },
+
+  // Popup
+  popup: { position: 'absolute', top: 45, left: 18, right: 18, zIndex: 100 },
+  popupInner: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
+  popupIcon: { fontSize: 28 },
+  popupLabel: { fontSize: 10, fontWeight: '600', color: '#fff', opacity: 0.9 },
+  popupTitle: { fontSize: 14, fontWeight: '900', color: '#fff' },
 });
